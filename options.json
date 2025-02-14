@@ -1,0 +1,23 @@
+[
+    {
+        "value": "ChatGPT",
+        "label": "ChatGPT",
+        "url": "https://chatgpt.com/",
+        "textareaSelector": "#prompt-textarea",
+        "buttonSelector": "[data-testid='send-button']"
+    },
+    {
+        "value": "DeepSeek",
+        "label": "DeepSeek",
+        "url": "https://www.deepseek.com/",
+        "textareaSelector": "#chat-input",
+        "buttonSelector": "div[role='button'].f6d670"
+    },
+    {
+        "value": "other",
+        "label": "Others",
+        "url": "https://example.com/",
+        "textareaSelector": "#input",
+        "buttonSelector": "#submit"
+    }
+]

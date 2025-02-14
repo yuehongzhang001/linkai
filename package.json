@@ -1,0 +1,52 @@
+{
+  "name": "linkai",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "electronmon .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.example.linkai",
+    "productName": "LinkAI",
+    "files": [
+      "index.js",
+      "package.json",
+      "executeScript.js",
+      "input.html",
+      "assets/icon.png"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "mac": {
+      "icon": "assets/icon.icns"
+    },
+    "win": {
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "icon": "assets/icon.png"
+    }
+  },
+  "keywords": [
+    "AI",
+    "quick access",
+    "web",
+    "chatgpt",
+    "deepseek"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "A tool for quick and convenient access to various AI websites like ChatGPT, DeepSeek, and more.",
+  "devDependencies": {
+    "electron": "^34.1.1",
+    "electron-builder": "^25.1.8",
+    "electronmon": "^2.0.3"
+  },
+  "dependencies": {
+    "electron-store": "^10.0.1"
+  }
+}

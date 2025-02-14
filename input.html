@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>输入窗口</title>
+    <style>
+         body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            background: transparent;
+        }
+
+        .container {
+            background: white;
+            padding: 12px;
+            border-radius: 16px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column; /* 垂直布局 */
+            gap: 10px;
+            width: 360px;
+            position: relative;
+            margin-top: 0; /* 确保容器在顶部 */
+        }
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            padding: 10px;
+            background: transparent;
+        }
+
+        #submit {
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            background-color: black;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #submit::before {
+            content: "";
+            width: 20px;
+            height: 20px;
+            background-image: url('data:image/svg+xml,<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><circle cx="25" cy="25" r="25" fill="black"/><path d="M13 30 L25 12 L37 30 H29 V38 H21 V30 Z" fill="white"/></svg>');
+            background-size: contain;
+        }
+
+        #more {
+            cursor: pointer;
+            font-size: 24px;
+            color: #666;
+        }
+
+        .upside-down {
+            transform: rotate(180deg);
+        }
+
+        .icon-row {
+            display: none;
+            gap: 10px; /* 图标之间的间距 */
+        }
+
+        .icon {
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            background-color: #ddd;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .history-list {
+            position: absolute;
+            top: 55px;
+            left: 0;
+            width: 100%;
+            background: white;
+            border-left: 1px solid #ddd;
+            border-right: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .history-item {
+            padding: 8px 10px;
+            cursor: pointer;
+        }
+
+        .history-item:hover {
+            background: #f0f0f0;
+        }
+
+        #options {
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 第一行：输入框、提交按钮、更多按钮 -->
+        <div class="input-row">
+            <input type="text" id="userInput" placeholder="Message ChatGPT">
+            <span id="submit" class="icon"></span>
+            <span id="more">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+        </div>
+
+        <!-- 第二行：三个图标 -->
+        <div class="icon-row" id="more-panel">
+            <select id="options">
+            </select>
+            <div class="icon" id="icon1">1</div>
+            <div class="icon" id="icon2">2</div>
+            <div class="icon" id="icon3">3</div>
+        </div>
+
+        <!-- 历史记录 -->
+        <div id="history" class="history-list"></div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require("electron");
+        const fs = require("fs");
+        const path = require("path");
+
+        async function loadOptions() {
+            const optionsPath = path.join(__dirname, "options.json");
+            const optionsData = await fs.promises.readFile(optionsPath, "utf-8");
+            return JSON.parse(optionsData);
+        }
+
+        async function populateOptions() {
+            const optionsList = await loadOptions();
+            const defaultOption = optionsList.length > 0 ? optionsList[0].value : null;
+            const savedOption = await ipcRenderer.invoke("get-selected-option", defaultOption);
+            const selectElement = document.getElementById("options");
+
+            optionsList.forEach(option => {
+                const optionElement = document.createElement("option");
+                optionElement.value = option.value;
+                optionElement.textContent = option.label;
+                if (option.value === savedOption) {
+                    optionElement.selected = true;
+                }
+                selectElement.appendChild(optionElement);
+            });
+            selectElement.addEventListener("change", (event) => {
+                console.log("Selected option:", event.target.value);
+                const selectedOption = optionsList.find(option => option.value === event.target.value);
+                if (selectedOption) {
+                    ipcRenderer.send("update-url", selectedOption.url);
+                    ipcRenderer.send("save-selected-option", selectedOption.value);
+                }
+            });
+        }
+
+        populateOptions();
+
+        const MAX_HISTORY = 5;
+
+        async function loadHistory() {
+            return await ipcRenderer.invoke("load-history");
+        }
+
+        async function saveHistory(input) {
+            await ipcRenderer.send("save-history", input);
+        }
+
+        async function showHistory() {
+            const historyDiv = document.getElementById("history");
+            const history = await loadHistory();
+            historyDiv.innerHTML = history.map(item => `<div class="history-item">${item}</div>`).join("");
+            historyDiv.style.display = history.length ? "flex" : "none";
+        }
+
+        document.getElementById("userInput").addEventListener("focus", showHistory);
+
+        document.getElementById("history").addEventListener("click", function(event) {
+            if (event.target.classList.contains("history-item")) {
+                document.getElementById("userInput").value = event.target.textContent;
+                document.getElementById("history").style.display = "none";
+            }
+        });
+
+        document.getElementById("userInput").addEventListener("blur", function() {
+            setTimeout(() => document.getElementById("history").style.display = "none", 200);
+        });
+
+        window.addEventListener('load', function() {
+            document.getElementById("userInput").blur();
+        });
+
+        document.getElementById("submit").addEventListener("click", async () => {
+            const userInput = document.getElementById("userInput").value.trim();
+            if (!userInput) return;
+            await saveHistory(userInput);
+            ipcRenderer.send("submit-input", userInput);
+            document.getElementById("history").style.display = "none";
+            console.log("输入提交:", userInput);
+        });
+
+        document.getElementById("userInput").addEventListener("keydown", function(event) {
+            if (event.key === 'Enter') {
+                document.getElementById("submit").click();
+            }
+        });
+
+        // 点击 more 切换 icon-row 的可见状态
+        document.getElementById("more").addEventListener("click", function() {
+            this.classList.toggle("upside-down"); // 切换箭头方向
+            const iconRow = document.getElementById("more-panel");
+            if (iconRow.style.display === "none" || iconRow.style.display === "") {
+                iconRow.style.display = "flex"; // 显示 icon-row
+            } else {
+                iconRow.style.display = "none"; // 隐藏 icon-row
+            }
+        });
+
+        // 图标点击事件
+        document.getElementById("icon1").addEventListener("click", function() {
+            console.log("Icon 1 clicked");
+        });
+
+        document.getElementById("icon2").addEventListener("click", function() {
+            console.log("Icon 2 clicked");
+        });
+
+        document.getElementById("icon3").addEventListener("click", function() {
+            console.log("Icon 3 clicked");
+        });
+    </script>
+</body>
+</html>
