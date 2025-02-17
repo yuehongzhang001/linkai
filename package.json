@@ -6,7 +6,8 @@
     "start": "electronmon .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "pack:mac": "electron-builder -m"
   },
   "build": {
     "appId": "com.example.linkai",
@@ -14,15 +15,42 @@
     "files": [
       "index.js",
       "package.json",
-      "executeScript.js",
+      "submit.js",
+      "options.json",
       "input.html",
+      "assets/icon.icns",
+      "assets/icon.ico",
       "assets/icon.png"
+    ],
+    "extraResources": [
+      "assets"
     ],
     "directories": {
       "buildResources": "assets"
     },
     "mac": {
+      "type": "development",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "assets/icon.icns"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "win": {
       "icon": "assets/icon.ico"
@@ -43,10 +71,11 @@
   "description": "A tool for quick and convenient access to various AI websites like ChatGPT, DeepSeek, and more.",
   "devDependencies": {
     "electron": "^34.1.1",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^23.6.0",
     "electronmon": "^2.0.3"
   },
   "dependencies": {
+    "electron-log": "^4.4.6",
     "electron-store": "^10.0.1"
   }
 }

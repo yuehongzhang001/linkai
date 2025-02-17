@@ -1,4 +1,5 @@
 const { app, BrowserWindow, globalShortcut, clipboard, ipcMain } = require('electron');
+const log = require('electron-log');
 const fs = require('fs');
 const path = require('path');
 let Store;
@@ -10,6 +11,17 @@ let Store;
 
 function setupApp() {
     const store = new Store();
+    const ROOT_PATH = process.env.ELECTRON_RENDERER_URL || app.getAppPath()
+    let mainWindow;
+    let inputWindow;
+    let optionsPath;
+    let optionsData;
+    let optionsList;
+    let defaultOption;
+    let scriptPath;
+    let scriptContent;
+
+    log.info(`setupApp ROOT_PATH: ${ROOT_PATH}`);
 
     ipcMain.on("save-history", (event, input) => {
         let history = store.get("inputHistory", []);
@@ -32,8 +44,9 @@ function setupApp() {
     });
 
     ipcMain.on('submit-input', async (_, userInput) => {
+        log.info(`ipcMain on submit-input: ${userInput}`);
         inputWindow.hide();
-        console.log(`[User Input] ${userInput} [Clipboard] ${clipboard.readText()}`);
+        log.verbose(`[User Input] ${userInput} [Clipboard] ${clipboard.readText()}`);
         const prompt = `Content: ${clipboard.readText()}\nInstruction: ${userInput}\n`;
 
         const savedOption = store.get("selectedOption");
@@ -42,7 +55,6 @@ function setupApp() {
         const buttonSelector = selectedOption ? selectedOption.buttonSelector : '';
 
         // 读取并执行 executeScript.js 文件的内容
-        const scriptContent = await fs.promises.readFile(path.join(__dirname, 'executeScript.js'), 'utf8');
         mainWindow.webContents.executeJavaScript(`
             (function(prompt, textareaSelector, buttonSelector) {
                 ${scriptContent}
@@ -52,7 +64,8 @@ function setupApp() {
     });
 
     ipcMain.on('update-url', (_, url) => {
-        console.log(`[Update URL] ${url}`);
+        log.info(`ipcMain on update-url: ${url}`); 
+        log.info(`[Update URL] ${url}`);
         if (mainWindow) {
             mainWindow.loadURL(url).catch(err => console.error(`Failed to load URL: ${err}`));
             mainWindow.show();
@@ -61,21 +74,12 @@ function setupApp() {
         }
     });
 
-    let mainWindow;
-    let inputWindow;
-    let optionsPath;
-    let optionsData;
-    let optionsList;
-    let defaultOption;
-    let scriptPath;
-    let scriptContent;
-
     app.whenReady().then(() => {
-        optionsPath = path.join(__dirname, "options.json");
+        optionsPath = path.join(ROOT_PATH, "options.json");
         optionsData = fs.readFileSync(optionsPath, "utf-8");
         optionsList = JSON.parse(optionsData);
         defaultOption = optionsList.length > 0 ? optionsList[0].url : 'https://chatgpt.com/';
-        scriptPath = path.join(__dirname, 'submit.js');
+        scriptPath = path.join(ROOT_PATH, 'submit.js');
         scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         createMainWindow();
         createInputWindow();
@@ -83,7 +87,7 @@ function setupApp() {
 
         globalShortcut.register('CommandOrControl+Shift+O', () => {
             const selectedText = clipboard.readText();
-            console.log(`[Clipboard] ${clipboard.readText()}`);
+            log.verbose(`[Clipboard] ${clipboard.readText()}`);
             inputWindow.webContents.send('selected-text', selectedText);
             inputWindow.show();
         });
@@ -98,6 +102,7 @@ function setupApp() {
     });
 
     function createMainWindow() {
+        log.info(`createMainWindow begin`);
         mainWindow = new BrowserWindow({
             width: 1200,
             height: 800,
@@ -106,17 +111,18 @@ function setupApp() {
                 contextIsolation: true, 
                 enableRemoteModule: false,
             },
-            icon: path.join(__dirname, 'assets', 'icon.icns') // 添加图标路径
+            icon: path.join(ROOT_PATH, 'assets', 'icon.icns') // 添加图标路径
         });
-         // 获取上次选择的 URL
-         const savedOption = store.get("selectedOption", defaultOption);
-         const selectedOption = optionsList.find(option => option.value === savedOption);
-         const urlToLoad = selectedOption ? selectedOption.url : defaultOption;
- 
-         mainWindow.loadURL(urlToLoad);
-        //  mainWindow.webContents.openDevTools();
+        log.info(`createMainWindow done`);
+         // get URL
+        const savedOption = store.get("selectedOption", defaultOption);
+        const selectedOption = optionsList.find(option => option.value === savedOption);
+        const urlToLoad = selectedOption ? selectedOption.url : defaultOption;
+        mainWindow.loadURL(urlToLoad).catch((err) => {
+            log.error('Failed to load input.html:', err);
+        });
 
-          // 监听 new-window 事件并阻止新窗口的创建
+        //  mainWindow.webContents.openDevTools();
         mainWindow.webContents.setWindowOpenHandler(({ url }) => {
             mainWindow.loadURL(url);
             return { action: 'deny' };
@@ -124,6 +130,7 @@ function setupApp() {
     }
 
     function createInputWindow() {
+        log.info(`createInputWindow begin`);
         inputWindow = new BrowserWindow({
             width: 400,
             height: 280,
@@ -137,43 +144,15 @@ function setupApp() {
                 contextIsolation: false
             }
         });
+        log.info(`createInputWindow done`);
 
-        inputWindow.loadFile('input.html');
+        inputWindow.loadFile(path.join(ROOT_PATH, 'input.html')).catch((err) => {
+            log.error('Failed to load input.html:', err);
+        });
         
 
         inputWindow.on('blur', () => {
             inputWindow.hide();
-        });
-
-        ipcMain.on('submit-input', (_, userInput) => {
-            inputWindow.hide();
-            console.log(`[User Input] ${userInput} [Clipboard] ${clipboard.readText()}`);
-            const prompt = `Content: ${clipboard.readText()}\nInstruction: ${userInput}\n`;
-
-            const savedOption = store.get("selectedOption");
-            const selectedOption = optionsList.find(option => option.value === savedOption);
-            const textareaSelector = selectedOption ? selectedOption.textareaSelector : '';
-            const buttonSelector = selectedOption ? selectedOption.buttonSelector : '';
-
-            // 读取并执行 executeScript.js 文件的内容
-            console.log(`testing: 1`);
-            mainWindow.webContents.executeJavaScript(`
-                (function(prompt, textareaSelector, buttonSelector) {
-                    ${scriptContent}
-                })(${JSON.stringify(prompt)}, ${JSON.stringify(textareaSelector)}, ${JSON.stringify(buttonSelector)});
-            `);
-            mainWindow.show();
-        });
-
-        ipcMain.on('update-url', (_, url) => {
-            console.log(`[Update URL] ${url}`);
-            if (mainWindow) {
-                console.log('mainWindow is valid');
-                mainWindow.loadURL(url).catch(err => console.error(`Failed to load URL: ${err}`));
-                mainWindow.show();
-            } else {
-                console.error('mainWindow is not initialized');
-            }
         });
     }
 
