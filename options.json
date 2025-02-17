@@ -7,17 +7,18 @@
         "buttonSelector": "[data-testid='send-button']"
     },
     {
+        "value": "wenxiaobai",
+        "label": "wenxiaobai",
+        "url": "https://www.wenxiaobai.com/chat/tourist",
+        "textareaSelector": "textarea[type='tel']",
+        "buttonSelector": ".MsgInput_send_btn_act__InY8H"
+    },
+    {
         "value": "DeepSeek",
         "label": "DeepSeek",
         "url": "https://www.deepseek.com/",
         "textareaSelector": "#chat-input",
         "buttonSelector": "div[role='button'].f6d670"
-    },
-    {
-        "value": "other",
-        "label": "Others",
-        "url": "https://example.com/",
-        "textareaSelector": "#input",
-        "buttonSelector": "#submit"
     }
+
 ]
