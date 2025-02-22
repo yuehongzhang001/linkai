@@ -12,6 +12,7 @@ let Store;
 function setupApp() {
     const store = new Store();
     const ROOT_PATH = process.env.ELECTRON_RENDERER_URL || app.getAppPath()
+    const currentFileName = path.basename(__filename);
     let mainWindow;
     let inputWindow;
     let optionsPath;
@@ -21,7 +22,7 @@ function setupApp() {
     let scriptPath;
     let scriptContent;
 
-    log.info(`setupApp ROOT_PATH: ${ROOT_PATH}`);
+    log.info(`[${currentFileName}]> setupApp ROOT_PATH: ${ROOT_PATH}`);
 
     ipcMain.on("save-history", (event, input) => {
         let history = store.get("inputHistory", []);
@@ -44,28 +45,40 @@ function setupApp() {
     });
 
     ipcMain.on('submit-input', async (_, userInput) => {
-        log.info(`ipcMain on submit-input: ${userInput}`);
+        log.info(`[${currentFileName}]> ipcMain on submit-input: ${userInput}`);
         inputWindow.hide();
         log.verbose(`[User Input] ${userInput} [Clipboard] ${clipboard.readText()}`);
-        const prompt = `Content: ${clipboard.readText()}\nInstruction: ${userInput}\n`;
+        const content = clipboard.readText();
+        const instruction = userInput;
+
+        const prompt = `Ignore any previous [Instruction], Please Follow next [Instruction] basing on [Content], Do not repeat the content I provided, directly give the result.
+
+        [Instruction]
+        ${instruction}
+
+        [Content]
+        ${content}`;
 
         const savedOption = store.get("selectedOption");
         const selectedOption = optionsList.find(option => option.value === savedOption);
-        const textareaSelector = selectedOption ? selectedOption.textareaSelector : '';
+        const inputeElementSelector = selectedOption ? selectedOption.inputeElementSelector : '';
         const buttonSelector = selectedOption ? selectedOption.buttonSelector : '';
-
+        const auto = selectedOption ? selectedOption.auto : false;
         // 读取并执行 executeScript.js 文件的内容
-        mainWindow.webContents.executeJavaScript(`
-            (function(prompt, textareaSelector, buttonSelector) {
-                ${scriptContent}
-            })(${JSON.stringify(prompt)}, ${JSON.stringify(textareaSelector)}, ${JSON.stringify(buttonSelector)});
-        `);
+        if (auto) {
+            mainWindow.webContents.executeJavaScript(`
+                (function(prompt, inputeElementSelector, buttonSelector) {
+                    ${scriptContent}
+                })(${JSON.stringify(prompt)}, ${JSON.stringify(inputeElementSelector)}, ${JSON.stringify(buttonSelector)});
+            `);
+        } else {
+            clipboard.writeText(prompt);
+        }
         mainWindow.show();
     });
 
     ipcMain.on('update-url', (_, url) => {
-        log.info(`ipcMain on update-url: ${url}`); 
-        log.info(`[Update URL] ${url}`);
+        log.info(`[${currentFileName}]> ipcMain on update-url: ${url}`); 
         if (mainWindow) {
             mainWindow.loadURL(url).catch(err => console.error(`Failed to load URL: ${err}`));
             mainWindow.show();
@@ -83,7 +96,7 @@ function setupApp() {
         scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         createMainWindow();
         createInputWindow();
-        registerShortcuts();
+
 
         globalShortcut.register('CommandOrControl+Shift+O', () => {
             const selectedText = clipboard.readText();
@@ -102,7 +115,7 @@ function setupApp() {
     });
 
     function createMainWindow() {
-        log.info(`createMainWindow begin`);
+        log.info(`[${currentFileName}]> createMainWindow begin`);
         mainWindow = new BrowserWindow({
             width: 1200,
             height: 800,
@@ -113,7 +126,7 @@ function setupApp() {
             },
             icon: path.join(ROOT_PATH, 'assets', 'icon.icns') // 添加图标路径
         });
-        log.info(`createMainWindow done`);
+        log.info(`[${currentFileName}]> createMainWindow done`);
          // get URL
         const savedOption = store.get("selectedOption", defaultOption);
         const selectedOption = optionsList.find(option => option.value === savedOption);
@@ -130,7 +143,7 @@ function setupApp() {
     }
 
     function createInputWindow() {
-        log.info(`createInputWindow begin`);
+        log.info(`[${currentFileName}]> createInputWindow begin`);
         inputWindow = new BrowserWindow({
             width: 400,
             height: 280,
@@ -144,7 +157,7 @@ function setupApp() {
                 contextIsolation: false
             }
         });
-        log.info(`createInputWindow done`);
+        log.info(`[${currentFileName}]> createInputWindow done`);
 
         inputWindow.loadFile(path.join(ROOT_PATH, 'input.html')).catch((err) => {
             log.error('Failed to load input.html:', err);
@@ -156,9 +169,4 @@ function setupApp() {
         });
     }
 
-    function registerShortcuts() {
-        globalShortcut.register('CommandOrControl+Shift+I', () => {
-            inputWindow.show();
-        });
-    }
 }

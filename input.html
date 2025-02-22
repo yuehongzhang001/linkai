@@ -58,7 +58,7 @@
             content: "";
             width: 20px;
             height: 20px;
-            background-image: url('data:image/svg+xml,<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><circle cx="25" cy="25" r="25" fill="black"/><path d="M13 30 L25 12 L37 30 H29 V38 H21 V30 Z" fill="white"/></svg>');
+            background-image: url('data:image/svg+xml,<svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" class="stroke-[2] relative"><path d="M5 11L12 4M12 4L19 11M12 4V21" stroke="white" stroke-width="2"></path></svg>');
             background-size: contain;
         }
 
@@ -145,8 +145,15 @@
 
     <script>
         const { ipcRenderer } = require("electron");
+        const log = require('electron-log');
         const fs = require("fs");
         const path = require("path");
+        const currentFileName = path.basename(__filename);
+        const MAX_HISTORY = 5;
+        const userInputElement = document.getElementById("userInput");
+        const selectElement = document.getElementById("options");
+        const historyElement = document.getElementById("history");
+        const moreElement = document.getElementById("more")
 
         async function loadOptions() {
             const optionsPath = path.join(__dirname, "options.json");
@@ -158,7 +165,6 @@
             const optionsList = await loadOptions();
             const defaultOption = optionsList.length > 0 ? optionsList[0].value : null;
             const savedOption = await ipcRenderer.invoke("get-selected-option", defaultOption);
-            const selectElement = document.getElementById("options");
 
             optionsList.forEach(option => {
                 const optionElement = document.createElement("option");
@@ -170,7 +176,7 @@
                 selectElement.appendChild(optionElement);
             });
             selectElement.addEventListener("change", (event) => {
-                console.log("Selected option:", event.target.value);
+                log.info(`[${currentFileName}]> Selected option: ${event.target.value}`);
                 const selectedOption = optionsList.find(option => option.value === event.target.value);
                 if (selectedOption) {
                     ipcRenderer.send("update-url", selectedOption.url);
@@ -179,9 +185,15 @@
             });
         }
 
-        populateOptions();
-
-        const MAX_HISTORY = 5;
+        async function submit()  {
+            historyElement.style.display = "none";
+            const userInput = userInputElement.value.trim();
+            if (!userInput) return;
+            await saveHistory(userInput);
+            ipcRenderer.send("submit-input", userInput);
+            log.info(`[${currentFileName}]> [User Input] ${userInput}`);
+            
+        }
 
         async function loadHistory() {
             return await ipcRenderer.invoke("load-history");
@@ -192,46 +204,44 @@
         }
 
         async function showHistory() {
-            const historyDiv = document.getElementById("history");
+            const historyDiv = historyElement;
             const history = await loadHistory();
             historyDiv.innerHTML = history.map(item => `<div class="history-item">${item}</div>`).join("");
             historyDiv.style.display = history.length ? "flex" : "none";
         }
 
-        document.getElementById("userInput").addEventListener("focus", showHistory);
-
-        document.getElementById("history").addEventListener("click", function(event) {
-            if (event.target.classList.contains("history-item")) {
-                document.getElementById("userInput").value = event.target.textContent;
-                document.getElementById("history").style.display = "none";
+        populateOptions();
+        window.addEventListener("keydown", function(event) {
+            if (event.key === 'Enter' && event.isComposing === false) {
+                submit();
             }
         });
-
-        document.getElementById("userInput").addEventListener("blur", function() {
-            setTimeout(() => document.getElementById("history").style.display = "none", 200);
+        window.addEventListener("blur", function() {
+            historyElement.style.display = "none";
         });
 
-        window.addEventListener('load', function() {
-            document.getElementById("userInput").blur();
+        userInputElement.addEventListener("click", showHistory);
+        userInputElement.addEventListener("blur", function() {
+            setTimeout(() => historyElement.style.display = "none", 200);
+        });
+
+        historyElement.addEventListener("click", function(event) {
+            if (event.target.classList.contains("history-item")) {
+                userInputElement.value = event.target.textContent;
+                historyElement.style.display = "none";
+            }
         });
 
         document.getElementById("submit").addEventListener("click", async () => {
-            const userInput = document.getElementById("userInput").value.trim();
-            if (!userInput) return;
-            await saveHistory(userInput);
-            ipcRenderer.send("submit-input", userInput);
-            document.getElementById("history").style.display = "none";
-            console.log("输入提交:", userInput);
+            submit();
         });
 
-        document.getElementById("userInput").addEventListener("keydown", function(event) {
-            if (event.key === 'Enter') {
-                document.getElementById("submit").click();
-            }
+        ipcRenderer.on('selected-text', (event, selectedText) => {
+            log.info(`[${currentFileName}]> Received selected-text: ${selectedText}`);
         });
 
         // 点击 more 切换 icon-row 的可见状态
-        document.getElementById("more").addEventListener("click", function() {
+        moreElement.addEventListener("click", function() {
             this.classList.toggle("upside-down"); // 切换箭头方向
             const iconRow = document.getElementById("more-panel");
             if (iconRow.style.display === "none" || iconRow.style.display === "") {
@@ -243,15 +253,15 @@
 
         // 图标点击事件
         document.getElementById("icon1").addEventListener("click", function() {
-            console.log("Icon 1 clicked");
+            log.info(`[${currentFileName}]> Icon 1 clicked`);
         });
 
         document.getElementById("icon2").addEventListener("click", function() {
-            console.log("Icon 2 clicked");
+            log.info(`[${currentFileName}]> Icon 2 clicked`);
         });
 
         document.getElementById("icon3").addEventListener("click", function() {
-            console.log("Icon 3 clicked");
+            log.info(`[${currentFileName}]> Icon 3 clicked`);
         });
     </script>
 </body>
